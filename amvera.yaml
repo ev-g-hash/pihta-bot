@@ -1,0 +1,71 @@
+# Конфигурация для деплоя на Amvera Container
+version: '1.0'
+
+# Основная информация о приложении
+app:
+  name: telegram-echo-bot
+  description: "Telegram Echo Bot на aiogram с деплоем через Docker"
+  version: "1.0.0"
+
+# Настройки контейнера
+container:
+  # Тип образа
+  type: docker
+  # Путь к Dockerfile (если не стандартный)
+  dockerfile: Dockerfile
+  # Контекст для сборки
+  context: .
+  # Тег образа
+  tag: "telegram-echo-bot:latest"
+  
+  # Переменные окружения
+  environment:
+    BOT_TOKEN: "${BOT_TOKEN}"  # Будет запрошен при деплое
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+  
+  # Команда запуска (переопределяет CMD в Dockerfile)
+  command: ["python", "main.py"]
+  
+  # Healthcheck настройки
+  healthcheck:
+    enabled: true
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+
+# Настройки ресурсов
+resources:
+  # Лимиты памяти
+  memory:
+    min: 256MB
+    max: 512MB
+  # Лимиты CPU
+  cpu:
+    min: 0.25
+    max: 0.5
+
+# Настройки масштабирования
+scaling:
+  # Автоматическое масштабирование
+  auto_scaling: false
+  # Количество реплик
+  replicas: 1
+
+# Настройки логирования
+logging:
+  level: INFO
+  format: json
+  output: stdout
+
+# Домены (если нужны)
+domains:
+  # - bot.yourdomain.com
+
+# Переменные для настройки при деплое
+variables:
+  - name: BOT_TOKEN
+    description: "Токен Telegram бота от @BotFather"
+    required: true
+    type: secret
