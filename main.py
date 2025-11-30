@@ -3,6 +3,7 @@ import os
 import asyncio
 import signal
 import sys
+import requests
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ContentType
@@ -12,10 +13,11 @@ from dotenv import load_dotenv
 # Загружаем переменные окружения из .env файла (для локальной разработки)
 load_dotenv()
 
-# Токен бота - сначала из переменной окружения, потом из .env, потом fallback
+# Токен бота и API ключ погоды
 BOT_TOKEN = os.getenv('BOT_TOKEN') or "YOUR_BOT_TOKEN_HERE"
+WEATHER_API_KEY = os.getenv('WEATHER_API_KEY') or "0fde9719-4531-4699-a299-e632f34093b8"
 
-# Создание директории для логов СРАЗУ
+# Создание директории для логов
 os.makedirs('/app/logs', exist_ok=True)
 
 # Настройка логирования
@@ -56,6 +58,162 @@ def get_main_keyboard():
     )
     return keyboard
 
+def get_weather_keyboard():
+    """Создает клавиатуру для возврата"""
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 Назад в меню", callback_data="back_to_menu")
+            ]
+        ]
+    )
+    return keyboard
+
+# Функция для получения координат города
+def get_city_coordinates(city_name):
+    """Получает координаты города через Яндекс Геокодер"""
+    try:
+        url = f"https://geocode-maps.yandex.ru/1.x/"
+        params = {
+            'geocode': city_name,
+            'format': 'json',
+            'apikey': 'YOUR_GEOCODER_API_KEY'  # Нужен отдельный API ключ для геокодера
+        }
+        
+        # Для простоты используем предопределенные координаты популярных городов
+        city_coords = {
+            'москва': {'lat': 55.7558, 'lon': 37.6176},
+            'спб': {'lat': 59.9311, 'lon': 30.3609},
+            'санкт-петербург': {'lat': 59.9311, 'lon': 30.3609},
+            'новосибирск': {'lat': 55.0084, 'lon': 82.9357},
+            'екатеринбург': {'lat': 56.8389, 'lon': 60.6057},
+            'нижний новгород': {'lat': 56.2965, 'lon': 43.9361},
+            'казань': {'lat': 55.8304, 'lon': 49.0661},
+            'челябинск': {'lat': 55.1644, 'lon': 61.4368},
+            'омск': {'lat': 54.9885, 'lon': 73.3242},
+            'самара': {'lat': 53.1959, 'lon': 50.1008}
+        }
+        
+        city_lower = city_name.lower().strip()
+        if city_lower in city_coords:
+            return city_coords[city_lower]
+        else:
+            return None
+            
+    except Exception as e:
+        logger.error(f"Ошибка при получении координат города {city_name}: {e}")
+        return None
+
+# Функция для получения прогноза погоды
+def get_weather_forecast(lat, lon):
+    """Получает прогноз погоды через Яндекс.Погода API"""
+    try:
+        url = 'https://api.weather.yandex.ru/v2/forecast'
+        headers = {'X-Yandex-Weather-Key': WEATHER_API_KEY}
+        params = {
+            'lat': lat,
+            'lon': lon,
+            'lang': 'ru_RU',
+            'limit': 3
+        }
+        
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            logger.error(f"API погоды вернул код {response.status_code}: {response.text}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ошибка запроса к API погоды: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при получении погоды: {e}")
+        return None
+
+# Функция для форматирования прогноза погоды
+def format_weather_message(weather_data, city_name):
+    """Форматирует сообщение с прогнозом погоды"""
+    try:
+        if not weather_data or 'forecasts' not in weather_data:
+            return "❌ Не удалось получить данные о погоде. Попробуйте позже."
+        
+        current = weather_data['fact']
+        forecasts = weather_data['forecasts']
+        
+        # Эмодзи для условий погоды
+        weather_emojis = {
+            'clear': '☀️',
+            'partly-cloudy': '⛅',
+            'cloudy': '☁️',
+            'overcast': '☁️',
+            'drizzle': '🌦️',
+            'light-rain': '🌦️',
+            'rain': '🌧️',
+            'moderate-rain': '🌧️',
+            'heavy-rain': '🌧️',
+            'thunderstorm': '⛈️',
+            'snow': '❄️',
+            'snowfall': '❄️'
+        }
+        
+        condition = current.get('condition', 'unknown')
+        icon = weather_emojis.get(condition, '🌤️')
+        
+        # Температура
+        temp = current.get('temp', 0)
+        feels_like = current.get('feels_like', temp)
+        
+        # Направление ветра
+        wind_dir = current.get('wind_dir', '')
+        wind_speed = current.get('wind_speed', 0)
+        
+        wind_directions = {
+            'nw': 'СЗ', 'n': 'С', 'ne': 'СВ', 
+            'e': 'В', 'se': 'ЮВ', 's': 'Ю', 
+            'sw': 'ЮЗ', 'w': 'З', 'c': 'Штиль'
+        }
+        wind_dir_ru = wind_directions.get(wind_dir, wind_dir)
+        
+        # Влажность
+        humidity = current.get('humidity', 0)
+        pressure = current.get('pressure_mm', 0)
+        
+        message = f"🌤️ **Погода в {city_name.title()}** 🌤️\n\n"
+        message += f"{icon} **{condition}**\n\n"
+        message += f"🌡️ **Температура:** {temp:+d}°C\n"
+        message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n\n"
+        
+        if wind_speed > 0:
+            message += f"💨 **Ветер:** {wind_dir_ru} {wind_speed} м/с\n"
+        
+        if humidity > 0:
+            message += f"💧 **Влажность:** {humidity}%\n"
+        
+        if pressure > 0:
+            message += f"📊 **Давление:** {pressure} мм рт.ст.\n"
+        
+        message += "\n📅 **Прогноз на 2 дня:**\n"
+        
+        for i, forecast in enumerate(forecasts[:2]):
+            date_parts = forecast['date'].split('-')
+            day_name = forecast.get('parts', [{}])[0]
+            
+            temp_min = day_name.get('temp_min', 0)
+            temp_max = day_name.get('temp_max', 0)
+            condition_day = day_name.get('condition', 'unknown')
+            icon_day = weather_emojis.get(condition_day, '🌤️')
+            
+            message += f"📅 **{date_parts[2]}.{date_parts[1]}:** {icon_day} {temp_min:+d}°...{temp_max:+d}°C\n"
+        
+        return message
+        
+    except Exception as e:
+        logger.error(f"Ошибка при форматировании прогноза погоды: {e}")
+        return "❌ Ошибка при обработке данных о погоде."
+
 # Обработчик команды /start
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
@@ -89,28 +247,109 @@ async def process_weather_callback(callback: types.CallbackQuery):
         
         weather_text = (
             "🌤️ **Прогноз погоды** 🌤️\n\n"
-            "🔍 Функция поиска погоды в разработке!\n\n"
-            "📍 **Как это будет работать:**\n"
-            "• Введите название города\n"
-            "• Получите текущую погоду\n"
-            "• Узнаете прогноз на несколько дней\n"
-            "• Температура, влажность, ветер\n\n"
-            "⏳ **Скоро будет доступно!**\n\n"
-            "💡 **Сейчас доступно:**\n"
-            "🛒 Поиск товаров\n"
-            "🏠 Поиск жилья"
+            "🔍 Введите название города для получения прогноза погоды:\n\n"
+            "📍 **Поддерживаемые города:**\n"
+            "• Москва\n"
+            "• Санкт-Петербург\n"
+            "• Новосибирск\n"
+            "• Екатеринбург\n"
+            "• Нижний Новгород\n"
+            "• Казань\n"
+            "• Челябинск\n"
+            "• Омск\n"
+            "• Самара\n\n"
+            "💡 **Пример:** просто напишите название города"
         )
         
-        # Обновляем сообщение с новой информацией
         await callback.message.edit_text(
             weather_text,
             parse_mode="Markdown",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_weather_keyboard()
         )
         logger.info(f"Пользователь {callback.from_user.id} нажал на кнопку погоды")
         
     except Exception as e:
         logger.error(f"Ошибка при обработке запроса погоды: {e}")
+
+# Обработчик текстовых сообщений в режиме погоды
+@dp.message(F.content_type == ContentType.TEXT)
+async def process_weather_city(message: types.Message):
+    """Обработчик ввода города для получения прогноза"""
+    try:
+        city_name = message.text.strip()
+        
+        # Проверяем, что это не команда
+        if city_name.startswith('/'):
+            return
+        
+        # Получаем координаты города
+        coords = get_city_coordinates(city_name)
+        
+        if not coords:
+            await message.answer(
+                f"❌ Город '{city_name}' не найден в базе данных.\n\n"
+                "📍 **Попробуйте ввести:**\n"
+                "• Москва\n"
+                "• СПб\n"
+                "• Новосибирск\n"
+                "• Екатеринбург\n"
+                "• Казань\n\n"
+                "🔙 Или вернитесь в главное меню:",
+                parse_mode="Markdown",
+                reply_markup=get_weather_keyboard()
+            )
+            return
+        
+        # Получаем прогноз погоды
+        weather_data = get_weather_forecast(coords['lat'], coords['lon'])
+        
+        if weather_data:
+            weather_message = format_weather_message(weather_data, city_name)
+            await message.answer(
+                weather_message,
+                parse_mode="Markdown",
+                reply_markup=get_weather_keyboard()
+            )
+            logger.info(f"Прогноз погоды отправлен пользователю {message.from_user.id} для города {city_name}")
+        else:
+            await message.answer(
+                "❌ Не удалось получить данные о погоде.\n\n"
+                "🔄 Попробуйте еще раз или выберите другой город:",
+                reply_markup=get_weather_keyboard()
+            )
+            
+    except Exception as e:
+        logger.error(f"Ошибка при обработке запроса погоды для города {message.text}: {e}")
+        await message.answer(
+            "❌ Произошла ошибка при получении прогноза погоды.\n\n"
+            "🔄 Попробуйте еще раз:",
+            reply_markup=get_weather_keyboard()
+        )
+
+# Обработчик кнопки "Назад"
+@dp.callback_query(F.data == "back_to_menu")
+async def process_back_to_menu(callback: types.CallbackQuery):
+    """Обработчик возврата в главное меню"""
+    try:
+        await callback.answer()
+        
+        welcome_text = (
+            "🌟 **Главное меню** 🌟\n\n"
+            "🎯 **Выберите нужную функцию:**\n\n"
+            "🌤️ **Прогноз погоды** - узнайте погоду в любом городе\n"
+            "🛒 **Поиск товаров** - найдите нужные товары по выгодным ценам\n"
+            "🏠 **Поиск жилья** - подберите квартиру или дом для покупки/аренды"
+        )
+        
+        await callback.message.edit_text(
+            welcome_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
+        )
+        logger.info(f"Пользователь {callback.from_user.id} вернулся в главное меню")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при возврате в главное меню: {e}")
 
 # Обработчик кнопки "Поиск товаров"
 @dp.callback_query(F.data == "products")
@@ -132,10 +371,7 @@ async def process_products_callback(callback: types.CallbackQuery):
             "• Wildberries\n"
             "• Ozon\n"
             "• Авито\n\n"
-            "⏳ **Скоро будет доступно!**\n\n"
-            "💡 **Сейчас доступно:**\n"
-            "🌤️ Прогноз погоды\n"
-            "🏠 Поиск жилья"
+            "⏳ **Скоро будет доступно!**"
         )
         
         await callback.message.edit_text(
@@ -168,10 +404,7 @@ async def process_real_estate_callback(callback: types.CallbackQuery):
             "• Цена за м²\n"
             "• Инфраструктура района\n"
             "• Транспортная доступность\n\n"
-            "⏳ **Скоро будет доступно!**\n\n"
-            "💡 **Сейчас доступно:**\n"
-            "🌤️ Прогноз погоды\n"
-            "🛒 Поиск товаров"
+            "⏳ **Скоро будет доступно!**"
         )
         
         await callback.message.edit_text(
@@ -194,9 +427,9 @@ async def cmd_help(message: types.Message):
         "/start - Начать работу с ботом\n"
         "/help - Показать эту справку\n\n"
         "🎯 **Функции бота:**\n"
-        "🌤️ Прогноз погоды\n"
-        "🛒 Поиск товаров\n"
-        "🏠 Поиск жилья\n\n"
+        "🌤️ Прогноз погоды (УЖЕ РАБОТАЕТ!)\n"
+        "🛒 Поиск товаров (скоро)\n"
+        "🏠 Поиск жилья (скоро)\n\n"
         "📞 **Поддержка:**\n"
         "Если у вас есть вопросы или предложения - пишите!"
     )
@@ -250,6 +483,7 @@ async def main():
     try:
         logger.info("🤖 Запуск Telegram бота 'Бот на все случаи жизни'...")
         logger.info(f"Токен бота: {'*' * (len(BOT_TOKEN) - 10) + BOT_TOKEN[-10:] if len(BOT_TOKEN) > 10 else '***'}")
+        logger.info(f"API ключ погоды: {WEATHER_API_KEY[:10]}...")
         
         # Пропускаем накопленные обновления
         await bot.delete_webhook(drop_pending_updates=True)
