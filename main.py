@@ -143,20 +143,20 @@ def format_weather_message(weather_data, city_name):
         current = weather_data['fact']
         forecasts = weather_data.get('forecasts', [])
         
-        # Эмодзи для условий погоды
+        # Эмодзи для условий погоды        
         weather_emojis = {
-            'clear': '☀️',
-            'partly-cloudy': '⛅',
-            'cloudy': '☁️',
-            'overcast': '☁️',
-            'drizzle': '🌦️',
-            'light-rain': '🌦️',
-            'rain': '🌧️',
-            'moderate-rain': '🌧️',
-            'heavy-rain': '🌧️',
-            'thunderstorm': '⛈️',
-            'snow': '❄️',
-            'snowfall': '❄️'
+            'clear': '☀️ Ясно',
+            'partly-cloudy': '⛅ Малооблачно',
+            'cloudy': '☁️ Облачно',
+            'overcast': '☁️ Пасмурно',
+            'drizzle': '🌦️ Морось',
+            'light-rain': '🌦️ Небольшой дождь',
+            'rain': '🌧️ Дождь',
+            'moderate-rain': '🌧️ Умеренный дождь',
+            'heavy-rain': '🌧️ Сильный дождь',
+            'thunderstorm': '⛈️ Гроза',
+            'snow': '❄️ Снег',
+            'snowfall': '❄️ Снегопад'
         }
         
         condition = current.get('condition', 'unknown')
