@@ -140,11 +140,15 @@ def get_weather_forecast(lat, lon):
 def format_weather_message(weather_data, city_name):
     """Форматирует сообщение с прогнозом погоды"""
     try:
-        if not weather_data or 'forecasts' not in weather_data:
+        if not weather_data:
             return "❌ Не удалось получить данные о погоде. Попробуйте позже."
         
+        # Проверяем структуру ответа API
+        if 'fact' not in weather_data:
+            return f"❌ Неверный формат ответа API для {city_name}. Попробуйте позже."
+        
         current = weather_data['fact']
-        forecasts = weather_data['forecasts']
+        forecasts = weather_data.get('forecasts', [])
         
         # Эмодзи для условий погоды
         weather_emojis = {
@@ -165,9 +169,13 @@ def format_weather_message(weather_data, city_name):
         condition = current.get('condition', 'unknown')
         icon = weather_emojis.get(condition, '🌤️')
         
-        # Температура
-        temp = current.get('temp', 0)
+        # Температура - добавляем проверки
+        temp = current.get('temp')
         feels_like = current.get('feels_like', temp)
+        
+        # Безопасное получение температуры
+        if temp is None:
+            temp = feels_like if feels_like is not None else 0
         
         # Направление ветра
         wind_dir = current.get('wind_dir', '')
@@ -180,14 +188,18 @@ def format_weather_message(weather_data, city_name):
         }
         wind_dir_ru = wind_directions.get(wind_dir, wind_dir)
         
-        # Влажность
+        # Влажность и давление
         humidity = current.get('humidity', 0)
         pressure = current.get('pressure_mm', 0)
         
         message = f"🌤️ **Погода в {city_name.title()}** 🌤️\n\n"
         message += f"{icon} **{condition}**\n\n"
         message += f"🌡️ **Температура:** {temp:+d}°C\n"
-        message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n\n"
+        
+        if feels_like is not None and feels_like != temp:
+            message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n"
+        
+        message += "\n"
         
         if wind_speed > 0:
             message += f"💨 **Ветер:** {wind_dir_ru} {wind_speed} м/с\n"
@@ -198,24 +210,35 @@ def format_weather_message(weather_data, city_name):
         if pressure > 0:
             message += f"📊 **Давление:** {pressure} мм рт.ст.\n"
         
-        message += "\n📅 **Прогноз на 2 дня:**\n"
-        
-        for i, forecast in enumerate(forecasts[:2]):
-            date_parts = forecast['date'].split('-')
-            day_name = forecast.get('parts', [{}])[0]
+        # Прогноз на несколько дней
+        if forecasts:
+            message += "\n📅 **Прогноз на 2 дня:**\n"
             
-            temp_min = day_name.get('temp_min', 0)
-            temp_max = day_name.get('temp_max', 0)
-            condition_day = day_name.get('condition', 'unknown')
-            icon_day = weather_emojis.get(condition_day, '🌤️')
-            
-            message += f"📅 **{date_parts[2]}.{date_parts[1]}:** {icon_day} {temp_min:+d}°...{temp_max:+d}°C\n"
+            for forecast in forecasts[:2]:
+                date_parts = forecast.get('date', '').split('-')
+                parts = forecast.get('parts', [])
+                
+                if parts:
+                    day_part = parts[0]  # Берем дневную часть
+                    
+                    temp_min = day_part.get('temp_min', 0)
+                    temp_max = day_part.get('temp_max', 0)
+                    condition_day = day_part.get('condition', 'unknown')
+                    icon_day = weather_emojis.get(condition_day, '🌤️')
+                    
+                    if len(date_parts) >= 3:
+                        day_str = f"{date_parts[2]}.{date_parts[1]}"
+                    else:
+                        day_str = "Завтра"
+                    
+                    message += f"📅 **{day_str}:** {icon_day} {temp_min:+d}°...{temp_max:+d}°C\n"
         
         return message
         
     except Exception as e:
         logger.error(f"Ошибка при форматировании прогноза погоды: {e}")
-        return "❌ Ошибка при обработке данных о погоде."
+        logger.error(f"Структура данных: {weather_data}")
+        return f"❌ Ошибка при обработке данных о погоде для {city_name}."
 
 # Обработчик команды /start
 @dp.message(CommandStart())
