@@ -3,7 +3,7 @@ import os
 import asyncio
 import signal
 import sys
-import requests
+import httpx as requests  # ИЗМЕНЕНИЕ ЗДЕСЬ
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ContentType
