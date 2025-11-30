@@ -14,19 +14,20 @@ load_dotenv()
 # Токен бота - сначала из переменной окружения, потом из .env, потом fallback
 BOT_TOKEN = os.getenv('BOT_TOKEN') or "YOUR_BOT_TOKEN_HERE"
 
-# Настройка логирования
+# Создание директории для логов СРАЗУ
+os.makedirs('/app/logs', exist_ok=True)
+
+# Настройка логирования ПОСЛЕ создания директории
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/app/logs/bot.log', encoding='utf-8')
+        # Убираем файл логов для продакшена - используем только консоль
+        # logging.FileHandler('/app/logs/bot.log', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
-
-# Создание директории для логов
-os.makedirs('/app/logs', exist_ok=True)
 
 # Проверка токена
 if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
@@ -241,8 +242,5 @@ async def main():
         await shutdown()
 
 if __name__ == "__main__":
-    # Создаем директорию для логов
-    os.makedirs('/app/logs', exist_ok=True)
-    
     # Запуск бота
     asyncio.run(main())
