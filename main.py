@@ -182,7 +182,7 @@ def format_weather_message(weather_data, city_name):
         pressure = current.get('pressure_mm', 0)
         
         message = f"🌤️ **Погода в {city_name.title()}** 🌤️\n\n"
-        message += f"{icon} **{condition}**\n\n"
+        message += f"{icon} \n\n"
         message += f"🌡️ **Температура:** {temp:+d}°C\n"
         message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n\n"
         
