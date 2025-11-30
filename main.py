@@ -13,9 +13,9 @@ from dotenv import load_dotenv
 # Загружаем переменные окружения из .env файла (для локальной разработки)
 load_dotenv()
 
-# Токен бота и API ключ погоды
+# Токен бота и API ключ погоды из переменных окружения
 BOT_TOKEN = os.getenv('BOT_TOKEN') or "YOUR_BOT_TOKEN_HERE"
-WEATHER_API_KEY = os.getenv('WEATHER_API_KEY') or "0fde9719-4531-4699-a299-e632f34093b8"
+WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 
 # Создание директории для логов
 os.makedirs('/app/logs', exist_ok=True)
@@ -33,6 +33,11 @@ logger = logging.getLogger(__name__)
 # Проверка токена
 if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
     logger.error("Токен бота не настроен! Установите переменную окружения BOT_TOKEN")
+    sys.exit(1)
+
+# Проверка API ключа погоды
+if not WEATHER_API_KEY:
+    logger.error("API ключ погоды не настроен! Установите переменную окружения WEATHER_API_KEY")
     sys.exit(1)
 
 # Глобальная переменная для корректного завершения
@@ -73,13 +78,6 @@ def get_weather_keyboard():
 def get_city_coordinates(city_name):
     """Получает координаты города через Яндекс Геокодер"""
     try:
-        url = f"https://geocode-maps.yandex.ru/1.x/"
-        params = {
-            'geocode': city_name,
-            'format': 'json',
-            'apikey': 'YOUR_GEOCODER_API_KEY'  # Нужен отдельный API ключ для геокодера
-        }
-        
         # Для простоты используем предопределенные координаты популярных городов
         city_coords = {
             'москва': {'lat': 55.7558, 'lon': 37.6176},
@@ -91,7 +89,12 @@ def get_city_coordinates(city_name):
             'казань': {'lat': 55.8304, 'lon': 49.0661},
             'челябинск': {'lat': 55.1644, 'lon': 61.4368},
             'омск': {'lat': 54.9885, 'lon': 73.3242},
-            'самара': {'lat': 53.1959, 'lon': 50.1008}
+            'самара': {'lat': 53.1959, 'lon': 50.1008},
+            'ростов': {'lat': 47.2357, 'lon': 39.7015},
+            'уфа': {'lat': 54.7388, 'lon': 55.9721},
+            'красноярск': {'lat': 56.0153, 'lon': 92.8932},
+            'воронеж': {'lat': 51.6755, 'lon': 39.2089},
+            'пермь': {'lat': 58.0105, 'lon': 56.2502}
         }
         
         city_lower = city_name.lower().strip()
