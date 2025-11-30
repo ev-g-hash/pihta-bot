@@ -169,13 +169,9 @@ def format_weather_message(weather_data, city_name):
         condition = current.get('condition', 'unknown')
         icon = weather_emojis.get(condition, '🌤️')
         
-        # Температура - добавляем проверки
-        temp = current.get('temp')
+        # Температура - безопасное получение
+        temp = current.get('temp', 0)
         feels_like = current.get('feels_like', temp)
-        
-        # Безопасное получение температуры
-        if temp is None:
-            temp = feels_like if feels_like is not None else 0
         
         # Направление ветра
         wind_dir = current.get('wind_dir', '')
@@ -195,11 +191,7 @@ def format_weather_message(weather_data, city_name):
         message = f"🌤️ **Погода в {city_name.title()}** 🌤️\n\n"
         message += f"{icon} **{condition}**\n\n"
         message += f"🌡️ **Температура:** {temp:+d}°C\n"
-        
-        if feels_like is not None and feels_like != temp:
-            message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n"
-        
-        message += "\n"
+        message += f"🌡️ **Ощущается как:** {feels_like:+d}°C\n\n"
         
         if wind_speed > 0:
             message += f"💨 **Ветер:** {wind_dir_ru} {wind_speed} м/с\n"
@@ -210,17 +202,18 @@ def format_weather_message(weather_data, city_name):
         if pressure > 0:
             message += f"📊 **Давление:** {pressure} мм рт.ст.\n"
         
-        # Прогноз на несколько дней
+        # Прогноз на несколько дней - исправленная обработка
         if forecasts:
             message += "\n📅 **Прогноз на 2 дня:**\n"
             
             for forecast in forecasts[:2]:
                 date_parts = forecast.get('date', '').split('-')
-                parts = forecast.get('parts', [])
+                parts = forecast.get('parts', {})
                 
-                if parts:
-                    day_part = parts[0]  # Берем дневную часть
-                    
+                # Берем дневную часть для информации о дне
+                day_part = parts.get('day', {})
+                
+                if day_part:
                     temp_min = day_part.get('temp_min', 0)
                     temp_max = day_part.get('temp_max', 0)
                     condition_day = day_part.get('condition', 'unknown')
