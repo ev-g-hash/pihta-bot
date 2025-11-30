@@ -4,8 +4,9 @@ import asyncio
 import signal
 import sys
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.enums import ContentType
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из .env файла (для локальной разработки)
@@ -17,14 +18,12 @@ BOT_TOKEN = os.getenv('BOT_TOKEN') or "YOUR_BOT_TOKEN_HERE"
 # Создание директории для логов СРАЗУ
 os.makedirs('/app/logs', exist_ok=True)
 
-# Настройка логирования ПОСЛЕ создания директории
+# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        # Убираем файл логов для продакшена - используем только консоль
-        # logging.FileHandler('/app/logs/bot.log', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -41,165 +40,187 @@ running = True
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Создание inline клавиатуры с кнопками
+def get_main_keyboard():
+    """Создает основную клавиатуру с кнопками"""
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🌤️ Посмотреть прогноз погоды", callback_data="weather"),
+                InlineKeyboardButton(text="🛒 Поискать товары", callback_data="products")
+            ],
+            [
+                InlineKeyboardButton(text="🏠 Поискать жильё", callback_data="real_estate")
+            ]
+        ]
+    )
+    return keyboard
+
 # Обработчик команды /start
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     """Обработчик команды /start"""
     try:
+        welcome_text = (
+            "🌟 **Привет! Я бот на все случаи жизни!** 🌟\n\n"
+            "👋 Рад вас видеть! Я умею помогать в различных ситуациях.\n\n"
+            "🎯 **Вот что я могу:**\n\n"
+            "🌤️ **Прогноз погоды** - узнайте погоду в любом городе\n"
+            "🛒 **Поиск товаров** - найдите нужные товары по выгодным ценам\n"
+            "🏠 **Поиск жилья** - подберите квартиру или дом для покупки/аренды\n\n"
+            "👇 Выберите нужную функцию ниже:"
+        )
+        
         await message.answer(
-            "🤖 Привет! Я эхо-бот.\n\n"
-            "Просто напиши мне любое сообщение, и я отправлю его тебе обратно!\n\n"
-            "📝 Поддерживаемые типы сообщений:\n"
-            "• Текст\n"
-            "• Фотографии\n"
-            "• Документы\n"
-            "• Стикеры\n"
-            "• Аудио\n"
-            "• Видео\n"
-            "• Голосовые сообщения"
+            welcome_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
         )
         logger.info(f"Пользователь {message.from_user.id} запустил бота")
     except Exception as e:
         logger.error(f"Ошибка при обработке /start: {e}")
 
-# Обработчик всех текстовых сообщений (эхо-функция)
-@dp.message(F.content_type == ContentType.TEXT)
-async def echo_message(message: types.Message):
-    """Эхо-обработчик - отправляет обратно полученный текст"""
+# Обработчик кнопки "Прогноз погоды"
+@dp.callback_query(F.data == "weather")
+async def process_weather_callback(callback: types.CallbackQuery):
+    """Обработчик нажатия на кнопку погоды"""
     try:
-        # Отправляем обратно текст сообщения
-        await message.answer(
-            f"📝 **Эхо:** {message.text}\n\n"
-            f"🆔 ID сообщения: `{message.message_id}`\n"
-            f"👤 Ваш ID: `{message.from_user.id}`\n"
-            f"👥 Чат ID: `{message.chat.id}`",
-            parse_mode="Markdown"
+        await callback.answer()
+        
+        weather_text = (
+            "🌤️ **Прогноз погоды** 🌤️\n\n"
+            "🔍 Функция поиска погоды в разработке!\n\n"
+            "📍 **Как это будет работать:**\n"
+            "• Введите название города\n"
+            "• Получите текущую погоду\n"
+            "• Узнаете прогноз на несколько дней\n"
+            "• Температура, влажность, ветер\n\n"
+            "⏳ **Скоро будет доступно!**\n\n"
+            "💡 **Сейчас доступно:**\n"
+            "🛒 Поиск товаров\n"
+            "🏠 Поиск жилья"
         )
-        logger.info(f"Эхо отправлено пользователю {message.from_user.id}")
+        
+        # Обновляем сообщение с новой информацией
+        await callback.message.edit_text(
+            weather_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
+        )
+        logger.info(f"Пользователь {callback.from_user.id} нажал на кнопку погоды")
+        
     except Exception as e:
-        logger.error(f"Ошибка при отправке эхо: {e}")
-        await message.answer("Извините, произошла ошибка при обработке вашего сообщения.")
+        logger.error(f"Ошибка при обработке запроса погоды: {e}")
 
-# Обработчик фотографий
-@dp.message(F.content_type == ContentType.PHOTO)
-async def echo_photo(message: types.Message):
-    """Обработчик фотографий"""
+# Обработчик кнопки "Поиск товаров"
+@dp.callback_query(F.data == "products")
+async def process_products_callback(callback: types.CallbackQuery):
+    """Обработчик нажатия на кнопку поиска товаров"""
     try:
-        photo = message.photo[-1]  # Берем фото наибольшего размера
-        await message.answer_photo(
-            photo=photo.file_id,
-            caption=f"🖼️ **Фотография получена!**\n\n"
-                    f"📏 Размер файла: `{photo.file_size:,}` байт\n"
-                    f"🆔 File ID: `{photo.file_id[:20]}...`\n"
-                    f"📐 Разрешение: {photo.width}x{photo.height}",
-            parse_mode="Markdown"
+        await callback.answer()
+        
+        products_text = (
+            "🛒 **Поиск товаров** 🛒\n\n"
+            "🔍 Функция поиска товаров в разработке!\n\n"
+            "📋 **Как это будет работать:**\n"
+            "• Опишите нужный товар\n"
+            "• Сравните цены в разных магазинах\n"
+            "• Найдете лучшие предложения\n"
+            "• Получите ссылки на покупку\n\n"
+            "🏪 **Источники данных:**\n"
+            "• Яндекс.Маркет\n"
+            "• Wildberries\n"
+            "• Ozon\n"
+            "• Авито\n\n"
+            "⏳ **Скоро будет доступно!**\n\n"
+            "💡 **Сейчас доступно:**\n"
+            "🌤️ Прогноз погоды\n"
+            "🏠 Поиск жилья"
         )
-        logger.info(f"Фото обработано для пользователя {message.from_user.id}")
+        
+        await callback.message.edit_text(
+            products_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
+        )
+        logger.info(f"Пользователь {callback.from_user.id} нажал на кнопку поиска товаров")
+        
     except Exception as e:
-        logger.error(f"Ошибка при обработке фото: {e}")
+        logger.error(f"Ошибка при обработке поиска товаров: {e}")
 
-# Обработчик документов
-@dp.message(F.content_type == ContentType.DOCUMENT)
-async def echo_document(message: types.Message):
-    """Обработчик документов"""
+# Обработчик кнопки "Поиск жилья"
+@dp.callback_query(F.data == "real_estate")
+async def process_real_estate_callback(callback: types.CallbackQuery):
+    """Обработчик нажатия на кнопку поиска жилья"""
     try:
-        doc = message.document
-        await message.answer_document(
-            document=doc.file_id,
-            caption=f"📄 **Документ получен!**\n\n"
-                    f"📁 Название: `{doc.file_name}`\n"
-                    f"📏 Размер: `{doc.file_size:,}` байт\n"
-                    f"🆔 MIME тип: `{doc.mime_type}`",
-            parse_mode="Markdown"
+        await callback.answer()
+        
+        real_estate_text = (
+            "🏠 **Поиск жилья** 🏠\n\n"
+            "🔍 Функция поиска недвижимости в разработке!\n\n"
+            "🏡 **Как это будет работать:**\n"
+            "• Укажите город и район\n"
+            "• Выберите тип жилья (квартира/дом)\n"
+            "• Задайте ценовой диапазон\n"
+            "• Получите подходящие варианты\n\n"
+            "📊 **Информация о жилье:**\n"
+            "• Фотографии и планировка\n"
+            "• Цена за м²\n"
+            "• Инфраструктура района\n"
+            "• Транспортная доступность\n\n"
+            "⏳ **Скоро будет доступно!**\n\n"
+            "💡 **Сейчас доступно:**\n"
+            "🌤️ Прогноз погоды\n"
+            "🛒 Поиск товаров"
         )
-        logger.info(f"Документ обработан для пользователя {message.from_user.id}")
-    except Exception as e:
-        logger.error(f"Ошибка при обработке документа: {e}")
-
-# Обработчик стикеров
-@dp.message(F.content_type == ContentType.STICKER)
-async def echo_sticker(message: types.Message):
-    """Обработчик стикеров"""
-    try:
-        sticker = message.sticker
-        await message.answer(
-            f"😊 **Стикер получен!**\n\n"
-            f"😀 Emoji: `{sticker.emoji}`\n"
-            f"📦 Набор: `{sticker.set_name or 'неизвестно'}`\n"
-            f"📐 Размер: {sticker.width}x{sticker.height}\n"
-            f"🆔 File ID: `{sticker.file_id[:20]}...`",
-            parse_mode="Markdown"
+        
+        await callback.message.edit_text(
+            real_estate_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
         )
-        logger.info(f"Стикер обработан для пользователя {message.from_user.id}")
+        logger.info(f"Пользователь {callback.from_user.id} нажал на кнопку поиска жилья")
+        
     except Exception as e:
-        logger.error(f"Ошибка при обработке стикера: {e}")
+        logger.error(f"Ошибка при обработке поиска жилья: {e}")
 
-# Обработчик аудио
-@dp.message(F.content_type == ContentType.AUDIO)
-async def echo_audio(message: types.Message):
-    """Обработчик аудио"""
-    try:
-        audio = message.audio
-        await message.answer_audio(
-            audio=audio.file_id,
-            caption=f"🎵 **Аудио получено!**\n\n"
-                    f"🎤 Исполнитель: `{audio.performer or 'Неизвестен'}`\n"
-                    f"🎼 Название: `{audio.title or 'Без названия'}`\n"
-                    f"⏱️ Длительность: `{audio.duration} сек`\n"
-                    f"📏 Размер: `{audio.file_size:,}` байт",
-            parse_mode="Markdown"
-        )
-        logger.info(f"Аудио обработано для пользователя {message.from_user.id}")
-    except Exception as e:
-        logger.error(f"Ошибка при обработке аудио: {e}")
+# Дополнительная команда /help
+@dp.message(Command("help"))
+async def cmd_help(message: types.Message):
+    """Обработчик команды /help"""
+    help_text = (
+        "❓ **Помощь по боту** ❓\n\n"
+        "🤖 **Доступные команды:**\n"
+        "/start - Начать работу с ботом\n"
+        "/help - Показать эту справку\n\n"
+        "🎯 **Функции бота:**\n"
+        "🌤️ Прогноз погоды\n"
+        "🛒 Поиск товаров\n"
+        "🏠 Поиск жилья\n\n"
+        "📞 **Поддержка:**\n"
+        "Если у вас есть вопросы или предложения - пишите!"
+    )
+    
+    await message.answer(help_text, parse_mode="Markdown")
 
-# Обработчик видео
-@dp.message(F.content_type == ContentType.VIDEO)
-async def echo_video(message: types.Message):
-    """Обработчик видео"""
-    try:
-        video = message.video
-        await message.answer_video(
-            video=video.file_id,
-            caption=f"🎬 **Видео получено!**\n\n"
-                    f"⏱️ Длительность: `{video.duration} сек`\n"
-                    f"📐 Разрешение: {video.width}x{video.height}\n"
-                    f"📏 Размер: `{video.file_size:,}` байт",
-            parse_mode="Markdown"
-        )
-        logger.info(f"Видео обработано для пользователя {message.from_user.id}")
-    except Exception as e:
-        logger.error(f"Ошибка при обработке видео: {e}")
-
-# Обработчик голосовых сообщений
-@dp.message(F.content_type == ContentType.VOICE)
-async def echo_voice(message: types.Message):
-    """Обработчик голосовых сообщений"""
-    try:
-        voice = message.voice
-        await message.answer_voice(
-            voice=voice.file_id,
-            caption=f"🎙️ **Голосовое получено!**\n\n"
-                    f"⏱️ Длительность: `{voice.duration} сек`\n"
-                    f"📏 Размер: `{voice.file_size:,}` байт",
-            parse_mode="Markdown"
-        )
-        logger.info(f"Голосовое обработано для пользователя {message.from_user.id}")
-    except Exception as e:
-        logger.error(f"Ошибка при обработке голосового: {e}")
-
-# Обработчик неизвестных типов сообщений
+# Обработчик неизвестных текстовых сообщений
 @dp.message()
 async def unknown_message(message: types.Message):
-    """Обработчик неизвестных типов сообщений"""
+    """Обработчик неизвестных сообщений"""
     try:
-        await message.answer(
-            f"❓ **Неизвестный тип сообщения!**\n\n"
-            f"Тип контента: `{message.content_type}`\n\n"
-            f"Попробуйте отправить текст, фото, документ или стикер.",
-            parse_mode="Markdown"
+        unknown_text = (
+            "🤔 **Не понял ваше сообщение** 🤔\n\n"
+            "👋 Воспользуйтесь кнопками ниже или командой /start\n"
+            "для выбора нужной функции!"
         )
-        logger.info(f"Неизвестный тип сообщения от пользователя {message.from_user.id}: {message.content_type}")
+        
+        await message.answer(
+            unknown_text,
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard()
+        )
+        logger.info(f"Неизвестное сообщение от пользователя {message.from_user.id}: {message.text}")
+        
     except Exception as e:
         logger.error(f"Ошибка при обработке неизвестного сообщения: {e}")
 
@@ -227,7 +248,7 @@ async def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     try:
-        logger.info("🤖 Запуск Telegram бота...")
+        logger.info("🤖 Запуск Telegram бота 'Бот на все случаи жизни'...")
         logger.info(f"Токен бота: {'*' * (len(BOT_TOKEN) - 10) + BOT_TOKEN[-10:] if len(BOT_TOKEN) > 10 else '***'}")
         
         # Пропускаем накопленные обновления
