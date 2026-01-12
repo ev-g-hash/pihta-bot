@@ -4,20 +4,10 @@ FROM python:3.11-slim
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Устанавливаем системные зависимости для aiogram и других пакетов
+# Устанавливаем системные зависимости для aiogram
 RUN apt-get update && apt-get install -y \
     gcc \
-    g++ \
-    curl \
-    pkg-config \
     && rm -rf /var/lib/apt/lists/*
-
-# Устанавливаем Rust для компиляции пакетов
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Проверяем установку Rust
-RUN rustc --version && cargo --version
 
 # Копируем файл зависимостей
 COPY requirements.txt .
@@ -38,12 +28,12 @@ USER appuser
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Открываем порт (если нужен для healthcheck)
+# Открываем порт
 EXPOSE 8000
 
-# Healthcheck для мониторинга состояния контейнера
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)" || exit 1
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import sys; sys.path.insert(0, '/app'); import main; sys.exit(0)" || exit 1
 
 # Команда для запуска бота
 CMD ["python", "main.py"]

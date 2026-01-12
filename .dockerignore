@@ -69,8 +69,6 @@ logs/
 *.log
 
 # Docker
-Dockerfile*
-docker-compose*
 .dockerignore
 
 # Documentation
