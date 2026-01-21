@@ -1,8 +1,9 @@
 # Основные зависимости для aiogram 3.x
-aiogram==3.4.1
+aiogram==3.24.0
 
 # Для работы с переменными окружения
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 
 # Для HTTP запросов
-httpx==0.25.2
+requests==2.32.5  
+
