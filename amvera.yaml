@@ -11,6 +11,10 @@ meta:
     type: docker
     dockerfile: Dockerfile
     context: .
+  
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
 
 container:
   type: docker
