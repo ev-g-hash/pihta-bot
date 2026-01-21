@@ -1,20 +1,20 @@
 # Конфигурация для деплоя на Amvera Container
 version: '1.0'
 
-app:
-  name: telegram-echo-bot
-  description: "Telegram Echo Bot на aiogram"
+meta:
+  name: telegram-pihta-bot
+  description: "Многофункциональный Telegram-бот: погода, товары, недвижимость"
   version: "1.0.0"
 
 container:
   type: docker
   dockerfile: Dockerfile
   context: .
-  tag: "telegram-echo-bot:latest"
+  tag: "telegram-pihta-bot:latest"
   
   environment:
-    BOT_TOKEN: "${BOT_TOKEN}"  # Запрашивается при деплое
-    WEATHER_API_KEY: "${WEATHER_API_KEY}"  # ДОБАВИТЬ!
+    BOT_TOKEN: "${BOT_TOKEN}"
+    WEATHER_API_KEY: "${WEATHER_API_KEY}"
     PYTHONDONTWRITEBYTECODE: "1"
     PYTHONUNBUFFERED: "1"
   
@@ -49,7 +49,7 @@ variables:
     description: "Токен Telegram бота от @BotFather"
     required: true
     type: secret
-  - name: WEATHER_API_KEY  # ДОБАВИТЬ!
+  - name: WEATHER_API_KEY
     description: "API ключ Яндекс.Погоды"
     required: true
     type: secret
