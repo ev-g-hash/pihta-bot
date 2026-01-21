@@ -5,6 +5,11 @@ meta:
   name: telegram-pihta-bot
   description: "Многофункциональный Telegram-бот: погода, товары, недвижимость"
   version: "1.0.0"
+  
+toolchain:
+  type: docker
+  dockerfile: Dockerfile
+  context: .
 
 container:
   type: docker
