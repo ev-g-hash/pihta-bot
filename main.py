@@ -18,8 +18,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN') or "YOUR_BOT_TOKEN_HERE"
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 
+# Порт для Cloud Amvera
+PORT = int(os.getenv('PORT', 8080))
+
 # Создание директории для логов
-os.makedirs('/app/logs', exist_ok=True)
+os.makedirs('/app/logs', exist_ok=True)  # ИЗМЕНЕНИЕ: /app для контейнера
 
 # Настройка логирования
 logging.basicConfig(
@@ -715,7 +718,7 @@ async def main():
         
         # Запускаем polling
         logger.info("✅ Бот запущен и готов к работе!")
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())  # ИЗМЕНЕНИЕ: добавлен allowed_updates
         
     except Exception as e:
         logger.error(f"❌ Ошибка при запуске бота: {e}")
